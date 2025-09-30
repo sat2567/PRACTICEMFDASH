@@ -71,9 +71,14 @@ def calculate_quarterly_outperformance(mf_returns, nifty_series):
     fund_cols = quarterly_returns.columns
     aligned = quarterly_returns.join(nifty_quarterly.rename('NIFTY100'), how="inner")
     outperformance = (aligned[fund_cols].gt(aligned['NIFTY100'], axis=0)).sum(axis=0)
-    total_quarters = int(len(aligned.index))
-    outperf_pct = (outperformance / total_quarters * 100) if total_quarters else outperformance.astype(float)
-    return outperformance, total_quarters, outperf_pct
+    
+    # Total quarters active per fund based on availability of quarterly returns
+    total_quarters_per_fund = quarterly_returns.notna().sum()
+    
+    # Calculate beat % per fund using its own active quarters count
+    outperf_pct = (outperformance / total_quarters_per_fund * 100).fillna(0)
+    
+    return outperformance, total_quarters_per_fund, outperf_pct
 
 # ------- Streamlit App -------
 def main():
