@@ -24,10 +24,13 @@ def clean_mf_data(mf_file):
     mf_df = mf_df.dropna(subset=['NAV'])
     return mf_df
 
-def clean_nifty_data(nifty_file):
+def clean_nifty_data(nifty_file, date_col='Date'):
+    """date_col: specify the column name of date in nifty file, adjust if different"""
     nifty_df = pd.read_csv(nifty_file)
-    n_dates1 = pd.to_datetime(nifty_df['Date'], dayfirst=True, errors='coerce')
-    n_dates2 = pd.to_datetime(nifty_df['Date'], dayfirst=False, errors='coerce')
+    if date_col not in nifty_df.columns:
+        raise KeyError(f"Date column '{date_col}' not found in NIFTY data columns: {list(nifty_df.columns)}")
+    n_dates1 = pd.to_datetime(nifty_df[date_col], dayfirst=True, errors='coerce')
+    n_dates2 = pd.to_datetime(nifty_df[date_col], dayfirst=False, errors='coerce')
     def span_and_unique(s):
         s2 = s.dropna()
         return (s2.max() - s2.min()).days if len(s2) else -1, s2.nunique()
@@ -37,6 +40,8 @@ def clean_nifty_data(nifty_file):
     nifty_df = nifty_df.dropna(subset=['Date'])
     nifty_df['Date'] = nifty_df['Date'].dt.tz_localize(None)
     # Ensure correct columns
+    if 'Close' not in nifty_df.columns:
+        raise KeyError("Close column not found in NIFTY data")
     nifty_df = nifty_df[['Date', 'Close']].rename(columns={'Close': 'NIFTY100'})
     nifty_df = nifty_df.sort_values('Date').drop_duplicates('Date')
     return nifty_df
@@ -73,15 +78,18 @@ def calculate_quarterly_outperformance(mf_returns, nifty_series):
 # ------- Streamlit App -------
 def main():
     st.title("Mutual Fund Dashboard: Momentum & Market Outperformance")
-    st.caption("Analyzing using robust data cleaning (date parsing, sorting, pivoting)")
+    st.caption("Uses robust date parsing and cleaning for mutual fund and NIFTY data")
 
     # --- File Names ---
     mf_file = "largecap_regular_growth_raw_10yrs.csv"
     nifty_file = "nifty100_filtered_data.csv"
 
+    # Specify date column for NIFTY CSV if different:
+    nifty_date_col = 'Date'  # Change if your CSV uses a different column name
+
     # --- Cleaning & Preparation ---
     mf_df = clean_mf_data(mf_file)
-    nifty_df = clean_nifty_data(nifty_file)
+    nifty_df = clean_nifty_data(nifty_file, date_col=nifty_date_col)
     mf_navs = get_nav_pivot(mf_df)
     mf_returns, nifty_series = get_returns(mf_navs, nifty_df)
 
